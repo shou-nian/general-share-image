@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenGraph Image Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #content {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #imageContainer {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        #loading {
+            display: none;
+        }
+
+        input[type="text"], button {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            width: 300px; /* 调整输入框的宽度 */
+        }
+    </style>
+</head>
+<body>
+<div id="content">
+    <h1>OpenGraph Image Viewer</h1>
+    <form id="urlForm">
+        <label for="url">URL:</label><br>
+        <input type="text" id="url" name="url" placeholder="请输入要查看的分享图链接" oninput="validateInput()"><br><br>
+        <button type="button" id="confirmButton" onclick="submitUrl()" disabled>Confirm</button>
+    </form>
+</div>
+<div id="loading">Waiting for response...</div>
+<div id="imageContainer"></div>
+
+<script>
+    function validateInput() {
+        var urlInput = document.getElementById("url");
+        var confirmButton = document.getElementById("confirmButton");
+        confirmButton.disabled = urlInput.value.trim() === ""; // 如果输入框中的值为空，则禁用按钮
+    }
+
+    function submitUrl() {
+        var url = document.getElementById("url").value;
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "/get?url=" + encodeURIComponent(url), true);
+        xhr.responseType = 'blob'; // Set the response type to 'blob' for a binary image
+
+        // Display the loader before sending the request
+        document.getElementById("loading").style.display = "block";
+
+        xhr.onload = function () {
+            document.getElementById("loading").style.display = "none"; // Hide loader
+            if (xhr.status === 200) {
+                var blob = new Blob([xhr.response], {type: 'image/png'});
+                var imageContainer = document.getElementById("imageContainer");
+                var img = document.createElement("img");
+                img.src = URL.createObjectURL(blob); // Create an object URL for the blob
+                img.style.maxWidth = "100%";
+                img.onload = function () {
+                    URL.revokeObjectURL(img.src); // Clean up after image load
+                };
+                imageContainer.innerHTML = ""; // Clear the image container
+                imageContainer.appendChild(img); // Append the new image
+            } else {
+                handleHttpError(xhr); // Handle non-200 HTTP responses
+            }
+        };
+
+        xhr.onerror = function () {
+            // Handle network errors
+            handleHttpError(xhr);
+        }
+
+        xhr.send();
+        document.getElementById("loading").style.display = "block";
+        document.getElementById("imageContainer").innerHTML = "";
+    }
+
+    // Function to handle displaying an error
+    function handleHttpError(xhr) {
+        var errorMessage = xhr.responseText;
+        var errorContainer = document.getElementById("imageContainer");
+        errorContainer.textContent = "Error: " + errorMessage;
+    }
+</script>
+</body>
+</html>
