@@ -1,135 +1,66 @@
 package main
 
 import (
-	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/fogleman/gg"
-	"image/color"
-	"io"
-	"log"
 	"log/slog"
-	"math/rand"
 	"net/http"
-	"os"
+	"regexp"
 	"strings"
-	"time"
+	"sync"
 )
 
 func main() {
-	var url = "https://aspecta.id/u/xihe"
-	res, err := http.Get(url)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}(res.Body)
+	http.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
+		slog.Info(r.Method + " " + r.RequestURI)
 
-	if res.StatusCode != 200 {
-		log.Fatalf("status code error: %d %s", res.StatusCode, res.Status)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(res.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	resultMap := func(doc *goquery.Document) map[string]string {
-		result := make(map[string]string)
-		doc.Find("head meta").Each(func(i int, selection *goquery.Selection) {
-			nameTag, exists := selection.Attr("name")
-			if !exists || !strings.HasPrefix(nameTag, "twitter:") {
-				return
-			}
-			contentTag, exists := selection.Attr("content")
-			if !exists {
-				return
-			}
-			result[nameTag[8:]] = contentTag
+		url := r.FormValue("url")
+		if !strings.HasPrefix(url, "") {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte("url is required"))
 			return
-		})
-		return result
-	}(doc)
-	fmt.Println(resultMap)
-
-	p := getShareImage(resultMap["image"])
-	fmt.Println(p)
-
-	p = generalImage(p, resultMap["title"])
-	err = deleteLocalStoryImage(p)
-	if err != nil {
-		slog.Info(err.Error())
-	}
-	fmt.Println("done!")
-}
-
-type ImgPath string
-
-func toImgPath(path string) ImgPath {
-	return ImgPath(path)
-}
-
-func getShareImage(url string) ImgPath {
-	res, err := http.Get(url)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if res.StatusCode != http.StatusOK {
-		log.Fatalf("get share image failed: %v", err)
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Fatal(err)
 		}
-	}(res.Body)
 
-	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	imgPath := fmt.Sprintf("./_img/_imag%d.png", rd.Int())
-	img, err := os.Create(imgPath)
-	if err != nil {
-		log.Fatalf("create image failed: %v", err)
-	}
+		if ok, _ := regexp.MatchString("aspecta.id", url); !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte("please enter aspecta website url"))
+			return
+		}
 
-	_, err = io.Copy(img, res.Body)
-	if err != nil {
-		log.Fatalf("copy image failed: %v", err)
-	}
-	err = img.Close()
-	if err != nil {
-		log.Fatalf("close image failed: %v", err)
-	}
+		body, err := CrawlWebsiteStaticHTML(url)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte("url is invalid"))
+			return
+		}
 
-	return toImgPath(imgPath)
-}
+		res := ProfilingTagToMap(body)
+		if len(res) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte("only support have share to twitter link"))
+			return
+		}
+		p := GetShareImage(res["image"])
+		p = GeneralImage(p, res["title"])
+		defer func(path ImgPath) {
+			err := DeleteLocalStoryImage(path)
+			if err != nil {
+				slog.Error(err.Error())
+			}
+		}(p)
 
-func deleteLocalStoryImage(path ImgPath) error {
-	err := os.Remove(string(path))
+		http.ServeFile(w, r, string(p))
+		return
+	})
 
-	return err
-}
+	// index
+	http.Handle("/", http.FileServer(http.Dir("static")))
 
-func generalImage(imgPath ImgPath, title string, other ...any) ImgPath {
-	img, err := gg.LoadImage(string(imgPath))
-	if err != nil {
-		log.Fatalf("load image failed: %v", err)
-	}
-
-	ctx := gg.NewContextForImage(img)
-	// 加载系统默认字体
-	if err := ctx.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 48); err != nil {
-		panic(err)
-	}
-	ctx.SetColor(color.White)
-
-	ctx.DrawString(title, 100, 100)
-	err = ctx.SavePNG(string(imgPath))
-	if err != nil {
-		log.Fatalf("save image failed: %v", err)
-	}
-
-	return imgPath
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		err := http.ListenAndServe(":8080", nil)
+		if err != nil {
+			slog.Error(err.Error())
+		}
+	}()
+	wg.Wait()
 }
