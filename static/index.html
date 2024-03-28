@@ -97,7 +97,7 @@
 
     // Function to handle displaying an error
     function handleHttpError(xhr) {
-        var errorMessage = xhr.responseText;
+        var errorMessage = xhr.responseText || "unknown error, please try again later.";
         var errorContainer = document.getElementById("imageContainer");
         errorContainer.textContent = "Error: " + errorMessage;
     }

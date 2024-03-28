@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image/color"
 	"io"
-	"log"
 	"log/slog"
 	"math/rand"
 	"net/http"
@@ -40,7 +39,8 @@ func ProfilingTagToMap(body io.ReadCloser) map[string]string {
 	}(body)
 	doc, err := goquery.NewDocumentFromReader(body)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err.Error())
+		return nil
 	}
 
 	res := func(doc *goquery.Document) map[string]string {
@@ -65,15 +65,17 @@ func ProfilingTagToMap(body io.ReadCloser) map[string]string {
 func GetShareImage(url string) ImgPath {
 	res, err := http.Get(url)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err.Error())
+		return ""
 	}
 	if res.StatusCode != http.StatusOK {
-		log.Fatalf("get share image failed: %v", err)
+		slog.Error("get share image failed: " + err.Error())
+		return ""
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			log.Fatal(err)
+			slog.Error(err.Error())
 		}
 	}(res.Body)
 
@@ -81,16 +83,19 @@ func GetShareImage(url string) ImgPath {
 	imgPath := fmt.Sprintf("./_img/_imag%d.png", rd.Int())
 	img, err := os.Create(imgPath)
 	if err != nil {
-		log.Fatalf("create image failed: %v", err)
+		slog.Error("create image failed: " + err.Error())
+		return ""
 	}
 
 	_, err = io.Copy(img, res.Body)
 	if err != nil {
-		log.Fatalf("copy image failed: %v", err)
+		slog.Error("copy image failed: " + err.Error())
+		return ""
 	}
 	err = img.Close()
 	if err != nil {
-		log.Fatalf("close image failed: %v", err)
+		slog.Error("close image failed: " + err.Error())
+		return ""
 	}
 
 	return toImgPath(imgPath)
@@ -99,10 +104,20 @@ func GetShareImage(url string) ImgPath {
 func GeneralImage(imgPath ImgPath, title string, other ...any) ImgPath {
 	img, err := gg.LoadImage(string(imgPath))
 	if err != nil {
-		log.Fatalf("load image failed: %v", err)
+		slog.Error("load image failed: %v", err)
 	}
 
 	ctx := gg.NewContextForImage(img)
+	// 获取并调整图片大小
+	//bounds := img.Bounds()
+	//width, height := float64(bounds.Size().X), float64(bounds.Size().Y)
+	//if width > 1024 || height > 536 {
+	//	width = float64(1024) / width
+	//	height = float64(536) / height
+	//	ctx = editImageDimensions(ctx, width, height)
+	//	ctx.DrawImage(img, 0, 0)
+	//}
+
 	// 加载默认字体
 	if err := ctx.LoadFontFace("./_fonts/arial.ttf", 20); err != nil {
 		panic(err)
@@ -112,7 +127,7 @@ func GeneralImage(imgPath ImgPath, title string, other ...any) ImgPath {
 	ctx.DrawString(title, 50, 500)
 	err = ctx.SavePNG(string(imgPath))
 	if err != nil {
-		log.Fatalf("save image failed: %v", err)
+		slog.Error("save image failed: %v" + err.Error())
 	}
 
 	return imgPath
@@ -123,3 +138,9 @@ func DeleteLocalStoryImage(path ImgPath) error {
 
 	return err
 }
+
+//func editImageDimensions(ctx *gg.Context, x, y float64) *gg.Context {
+//	ctx.Scale(x, y)
+//
+//	return ctx
+//}

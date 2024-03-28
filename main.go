@@ -21,24 +21,29 @@ func main() {
 
 		if ok, _ := regexp.MatchString("aspecta.id", url); !ok {
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte("please enter aspecta website url"))
+			_, _ = w.Write([]byte("please enter aspecta website url."))
 			return
 		}
 
 		body, err := CrawlWebsiteStaticHTML(url)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte("url is invalid"))
+			_, _ = w.Write([]byte("url is invalid."))
 			return
 		}
 
 		res := ProfilingTagToMap(body)
 		if len(res) == 0 {
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte("only support have share to twitter link"))
+			_, _ = w.Write([]byte("this url not found twitter tag, please try again."))
 			return
 		}
 		p := GetShareImage(res["image"])
+		if p == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte("unknown error, please try again."))
+			return
+		}
 		p = GeneralImage(p, res["title"])
 		defer func(path ImgPath) {
 			err := DeleteLocalStoryImage(path)
