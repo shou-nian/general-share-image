@@ -62,7 +62,7 @@ func main() {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		err := http.ListenAndServe(":8080", nil)
+		err := http.ListenAndServe("0.0.0.0:8080", nil)
 		if err != nil {
 			slog.Error(err.Error())
 		}
