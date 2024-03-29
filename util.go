@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"image/color"
+	"image/png"
 	"io"
 	"log/slog"
 	"math/rand"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/fogleman/gg"
+	"github.com/nfnt/resize"
 )
 
 type ImgPath string
@@ -102,21 +105,11 @@ func GetShareImage(url string) ImgPath {
 }
 
 func GeneralImage(imgPath ImgPath, title string, other ...any) ImgPath {
-	img, err := gg.LoadImage(string(imgPath))
+	img, err := loadImage(imgPath)
 	if err != nil {
 		slog.Error("load image failed: %v", err)
 	}
-
 	ctx := gg.NewContextForImage(img)
-	// 获取并调整图片大小
-	//bounds := img.Bounds()
-	//width, height := float64(bounds.Size().X), float64(bounds.Size().Y)
-	//if width > 1024 || height > 536 {
-	//	width = float64(1024) / width
-	//	height = float64(536) / height
-	//	ctx = editImageDimensions(ctx, width, height)
-	//	ctx.DrawImage(img, 0, 0)
-	//}
 
 	// 加载默认字体
 	if err := ctx.LoadFontFace("./_fonts/arial.ttf", 20); err != nil {
@@ -139,8 +132,40 @@ func DeleteLocalStoryImage(path ImgPath) error {
 	return err
 }
 
-//func editImageDimensions(ctx *gg.Context, x, y float64) *gg.Context {
-//	ctx.Scale(x, y)
-//
-//	return ctx
-//}
+func loadImage(oldImgPath ImgPath) (image.Image, error) {
+	img, err := gg.LoadImage(string(oldImgPath))
+	if err != nil {
+		return nil, err
+	}
+	// 获取并调整图片大小
+	bounds := img.Bounds()
+	width, height := bounds.Size().X, bounds.Size().Y
+	if width > 1024 || height > 536 {
+		// 使用Lanczos3插值算法进行图像缩放
+		newImage := resize.Resize(1024, 536, img, resize.Lanczos3)
+
+		// 删除原来的图片
+		err := DeleteLocalStoryImage(oldImgPath)
+		if err != nil {
+			return nil, err
+		}
+		// 在原路径上创建新图片
+		outputFile, err := os.Create(string(oldImgPath))
+		if err != nil {
+			return nil, err
+		}
+		defer func(outputFile *os.File) {
+			err := outputFile.Close()
+			if err != nil {
+				slog.Error(err.Error())
+			}
+		}(outputFile)
+		err = png.Encode(outputFile, newImage)
+		if err != nil {
+			return nil, err
+		}
+		return newImage, nil
+	}
+
+	return img, nil
+}
