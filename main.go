@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
-	"strings"
 	"sync"
 )
 
@@ -13,9 +12,9 @@ func main() {
 		slog.Info(r.Method + " " + r.RequestURI)
 
 		url := r.FormValue("url")
-		if !strings.HasPrefix(url, "") {
+		if ok, _ := regexp.MatchString(`(?m)(?P<origin>(?P<protocol>https?:)?//(?P<host>[a-z0-9A-Z-_.]+))(?P<port>:\d+)?(?P<path>[/a-zA-Z0-9-.]+)?(?P<search>\?[^#\n]+)?(?P<hash>#.*)?`, url); !ok {
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte("url is required"))
+			_, _ = w.Write([]byte("url is invalid, please check again."))
 			return
 		}
 
@@ -27,15 +26,12 @@ func main() {
 
 		body, err := CrawlWebsiteStaticHTML(url)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte("url is invalid."))
-			return
+			slog.Error(err.Error())
 		}
-
 		res := ProfilingTagToMap(body)
 		if len(res) == 0 {
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte("this url not found twitter tag, please try again."))
+			_, _ = w.Write([]byte("this url not found twitter tag, please check again."))
 			return
 		}
 		p := GetShareImage(res["image"])
