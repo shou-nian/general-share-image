@@ -112,7 +112,7 @@ func GeneralImage(imgPath ImgPath, title string, other ...any) ImgPath {
 	ctx := gg.NewContextForImage(img)
 
 	// 加载默认字体
-	if err := ctx.LoadFontFace("./_fonts/arial.ttf", 20); err != nil {
+	if err := ctx.LoadFontFace("./_1fonts/arial.ttf", 20); err != nil {
 		panic(err)
 	}
 	ctx.SetColor(color.White)
