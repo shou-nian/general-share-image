@@ -37,7 +37,7 @@ func main() {
 		p := GetShareImage(res["image"])
 		if p == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte("unknown error, please try again."))
+			_, _ = w.Write([]byte("拿不到图片，请给前端提bug！！！！！"))
 			return
 		}
 		p = GeneralImage(p, res["title"])
