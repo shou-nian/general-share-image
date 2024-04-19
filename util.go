@@ -36,6 +36,13 @@ func CrawlWebsiteStaticHTML(url string) (io.ReadCloser, error) {
 }
 
 func ProfilingTagToMap(body io.ReadCloser) (map[string]string, error) {
+	defer func(body io.ReadCloser) {
+		err := body.Close()
+		if err != nil {
+			slog.Error("close body failed: ", err.Error())
+		}
+	}(body)
+
 	res := profilingTwitterTagToMap(body)
 	if len(res) == 0 {
 		res = profilingOgTagToMap(body)
@@ -48,12 +55,6 @@ func ProfilingTagToMap(body io.ReadCloser) (map[string]string, error) {
 }
 
 func profilingTwitterTagToMap(body io.ReadCloser) map[string]string {
-	defer func(body io.ReadCloser) {
-		err := body.Close()
-		if err != nil {
-			slog.Error("close body failed: ", err.Error())
-		}
-	}(body)
 	doc, err := goquery.NewDocumentFromReader(body)
 	if err != nil {
 		slog.Error(err.Error())
@@ -80,12 +81,6 @@ func profilingTwitterTagToMap(body io.ReadCloser) map[string]string {
 }
 
 func profilingOgTagToMap(body io.ReadCloser) map[string]string {
-	defer func(body io.ReadCloser) {
-		err := body.Close()
-		if err != nil {
-			slog.Error("close body failed: ", err.Error())
-		}
-	}(body)
 	doc, err := goquery.NewDocumentFromReader(body)
 	if err != nil {
 		log.Fatal(err)
