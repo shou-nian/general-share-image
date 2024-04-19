@@ -1,11 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"io"
+	"log"
 	"log/slog"
 	"math/rand"
 	"net/http"
@@ -33,7 +35,19 @@ func CrawlWebsiteStaticHTML(url string) (io.ReadCloser, error) {
 	return res.Body, nil
 }
 
-func ProfilingTagToMap(body io.ReadCloser) map[string]string {
+func ProfilingTagToMap(body io.ReadCloser) (map[string]string, error) {
+	res := profilingTwitterTagToMap(body)
+	if len(res) == 0 {
+		res = profilingOgTagToMap(body)
+		if len(res) == 0 {
+			return nil, errors.New("not found tag")
+		}
+	}
+
+	return res, nil
+}
+
+func profilingTwitterTagToMap(body io.ReadCloser) map[string]string {
 	defer func(body io.ReadCloser) {
 		err := body.Close()
 		if err != nil {
@@ -60,6 +74,37 @@ func ProfilingTagToMap(body io.ReadCloser) map[string]string {
 			resMap[nameTag[8:]] = contentTag
 		})
 		return resMap
+	}(doc)
+
+	return res
+}
+
+func profilingOgTagToMap(body io.ReadCloser) map[string]string {
+	defer func(body io.ReadCloser) {
+		err := body.Close()
+		if err != nil {
+			slog.Error("close body failed: ", err.Error())
+		}
+	}(body)
+	doc, err := goquery.NewDocumentFromReader(body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	res := func(doc *goquery.Document) map[string]string {
+		res := make(map[string]string)
+		doc.Find("head meta").Each(func(i int, selection *goquery.Selection) {
+			ogTag, exists := selection.Attr("property")
+			if !exists || !strings.HasPrefix(ogTag, "og") {
+				return
+			}
+			contentTag, exists := selection.Attr("content")
+			if !exists {
+				return
+			}
+			res[ogTag[3:]] = contentTag
+		})
+		return res
 	}(doc)
 
 	return res

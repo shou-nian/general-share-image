@@ -17,7 +17,6 @@ func main() {
 			_, _ = w.Write([]byte("url is invalid, please check again."))
 			return
 		}
-
 		if ok, _ := regexp.MatchString("aspecta.id", url); !ok {
 			w.WriteHeader(http.StatusBadRequest)
 			_, _ = w.Write([]byte("please enter aspecta website url."))
@@ -28,16 +27,16 @@ func main() {
 		if err != nil {
 			slog.Error(err.Error())
 		}
-		res := ProfilingTagToMap(body)
-		if len(res) == 0 {
+		res, err := ProfilingTagToMap(body)
+		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte("this url not found twitter tag, please check again."))
+			_, _ = w.Write([]byte("this url not found twitter share image or og protoc, please check again."))
 			return
 		}
 		p := GetShareImage(res["image"])
 		if p == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte("拿不到图片，请给前端提bug！！！！！"))
+			_, _ = w.Write([]byte("this url not found share image, please check again."))
 			return
 		}
 		p = GeneralImage(p, res["title"])
