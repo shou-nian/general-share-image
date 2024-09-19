@@ -17,7 +17,7 @@ func main() {
 			_, _ = w.Write([]byte("url is invalid, please check again."))
 			return
 		}
-		if ok, _ := regexp.MatchString("aspecta.id", url); !ok {
+		if ok, _ := regexp.MatchString("aspecta.ai", url); !ok {
 			w.WriteHeader(http.StatusBadRequest)
 			_, _ = w.Write([]byte("please enter aspecta website url."))
 			return
